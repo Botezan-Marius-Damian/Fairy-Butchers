@@ -1,10 +1,14 @@
+import nl.saxion.app.CsvReader;
 import nl.saxion.app.SaxionApp;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 import java.io.File;
+import java.util.ArrayList;
 
 public class Application implements Runnable {
+
+    ArrayList<Player_characters> characters = readingCSVFile();
 
     BufferedImage fairyScaled;
     BufferedImage playerScaled;
@@ -34,6 +38,33 @@ public class Application implements Runnable {
         // Draw scaled fairy sprite
         SaxionApp.drawImage(fairyScaledPath, 700, 700);
         SaxionApp.drawImage(playerScaledPath, 200, 700);
+    }
+
+    public ArrayList<Player_characters> readingCSVFile(){
+        CsvReader reader = new CsvReader("resources/character.csv");
+        reader.skipRow();
+        reader.setSeparator(',');
+
+        ArrayList<Player_characters> characters = new ArrayList<>();
+
+        while(reader.loadRow()) {
+
+            Player_characters character = new Player_characters();
+            //String name;
+            //String png;
+            //int atk;
+            //int hp;
+            //int baseMana;
+            //Ability characterAbility;
+            Player_characters.name = reader.getString(0);
+            Player_characters.png = reader.getString(1);
+            Player_characters.atk = reader.getInt(2);
+            Player_characters.hp = reader.getInt(3);
+            Player_characters.baseMana = reader.getInt(4);
+            //character ability needs to be added
+            characters.add(character);
+        }
+        return characters;
     }
 
 

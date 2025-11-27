@@ -1,8 +1,8 @@
-public class Player_characters {
-    String name;
-    String png;
-    int atk;
-    int hp;
-    int baseMana;
+public  class Player_characters {
+    static String name;
+    static String png;
+    static int atk;
+    static int hp;
+    static int baseMana;
     Ability characterAbility;
 }
