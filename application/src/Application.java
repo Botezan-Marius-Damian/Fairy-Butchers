@@ -44,6 +44,9 @@ public class Application implements GameLoop {
     String tutorialButtonScaledPath = "resources/tutorialButton_scaled.png";
     String tutorialButtonHoverScaledPath = "resources/tutorialButton_hover_scaled.png";
 
+    // ==== CHARACTER SELECTION IMAGE ====
+    String characterSelection = "resources/characterSelection.png";
+
     // ===== EARTH ABILITY IMAGE PATHS =====
     String treeImgPath = "resources/ability_tree.png";          // normal attack option 1
     String stoneImgPath = "resources/ability_stone.png";         // normal attack option 2
@@ -94,6 +97,7 @@ public class Application implements GameLoop {
     int tutorialButtonWidth = 0;
     int tutorialButtonHeight = 0;
 
+    boolean inCharacterSelection = true;
     boolean inIntro = true;
     boolean corruptionDecayedThisTurn = false;
 
@@ -135,6 +139,12 @@ public class Application implements GameLoop {
             drawIntro();
             return;
         }
+
+        if (inCharacterSelection) {
+            characterSelectionPage();
+            return;
+        }
+
         if (currentTurn == turn.Fairy) {
             fairyTurn();
             currentTurn = turn.Player;
@@ -189,6 +199,10 @@ public class Application implements GameLoop {
             }
         }
 
+        if (!inIntro && e.getKeyCode() == KeyboardEvent.VK_1) {
+            inCharacterSelection = false;
+
+        }
     }
 
     @Override
@@ -223,6 +237,7 @@ public class Application implements GameLoop {
     }
 
     private void drawGame() {
+
         SaxionApp.clear();
         SaxionApp.drawImage("resources/backgroundPictureBattleground.png", 0, 0);
 
@@ -593,6 +608,12 @@ public class Application implements GameLoop {
         }
 
 
+    }
+
+    public void characterSelectionPage() {
+
+        SaxionApp.clear();
+        SaxionApp.drawImage(characterSelection, 0, 0);
     }
 
     public void attackEnemy() {
