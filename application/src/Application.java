@@ -29,12 +29,20 @@ public class Application implements GameLoop {
     BufferedImage tutorialButtonScaled;
     BufferedImage tutorialButtonHoverScaled;
 
-    BufferedImage wallScaled;                   // NEW: scaled wall image
-    String wallScaledPath = "resources/ability_wall_scaled.png";  // NEW path
+    BufferedImage wallScaled;
+    String wallScaledPath = "resources/ability_wall_scaled.png";
 
 
     BufferedImage stoneScaled;
     String stoneScaledPath = "resources/ability_stone_scaled.png";
+
+    BufferedImage treeScaled;
+    String treeScaledPath = "resources/ability_tree_scaled.png";
+
+    // tree spin animation: list of rotated frame paths
+    String[] treeSpinPaths;
+    int treeSpinFrame = 0;
+    int treeSpinFrameCount = 48;
 
 
     String fairyScaledPath = "resources/fairy_scaled.png";
@@ -301,6 +309,16 @@ public class Application implements GameLoop {
 
         wallScaled = loadSprite("resources/ability_wall.png", wallScaledPath, 1);
 
+        treeScaled = loadSprite("resources/ability_tree.png", treeScaledPath, 1);
+
+        treeSpinPaths = new String[treeSpinFrameCount];
+        for (int i = 0; i < treeSpinFrameCount; i++) {
+            double angleRad = 2 * Math.PI * i / treeSpinFrameCount;
+            String path = "resources/ability_tree_spin_" + i + ".png";
+            rotateSprite(treeScaled, angleRad, path);
+            treeSpinPaths[i] = path;
+        }
+
         stoneScaled = loadSprite("resources/ability_stone.png", stoneScaledPath, 1);
 
         if (playButtonScaled != null) {
@@ -358,6 +376,34 @@ public class Application implements GameLoop {
             return null;
         }
     }
+
+    // Rotate a sprite by angleRad and save it to outputPath
+    private BufferedImage rotateSprite(BufferedImage src, double angleRad, String outputPath) {
+        if (src == null) return null;
+
+        int w = src.getWidth();
+        int h = src.getHeight();
+
+        BufferedImage rotated = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = rotated.createGraphics();
+
+        // Rotate around the center
+        g2.translate(w / 2.0, h / 2.0);
+        g2.rotate(angleRad);
+        g2.drawImage(src, -w / 2, -h / 2, null);
+        g2.dispose();
+
+        try {
+            ImageIO.write(rotated, "png", new File(outputPath));
+        } catch (Exception ex) {
+            SaxionApp.printLine("Failed to rotate sprite: " + outputPath);
+            ex.printStackTrace();
+        }
+
+        return rotated;
+    }
+
+
 
 
     public void inGameHud() {
@@ -459,19 +505,42 @@ public class Application implements GameLoop {
 
 // ===== START ABILITY ANIMATIONS =====
 
-    // Normal attack: randomly choose between throwing tree or stone
+    // Normal attack: always throw tree
     private void startNormalAttackAnimation() {
-        if (Math.random() < 0.5) {
-            startTreeAbility();
-        } else {
-            startStoneAbility();
-        }
+        startTreeAbility();
     }
 
+    //when we press Q, the tree ability will start
     private void startTreeAbility() {
+        //tree is now active, so we need to draw and move it
         treeActive = true;
-        treeX = getPlayerCenterX();
-        treeY = getPlayerCenterY() - 40; // a bit above player
+
+        //center of the player sprite
+        int centerX = getPlayerCenterX();
+        int centerY = getPlayerCenterY();
+
+        //Y-position where the player's feet are (player is drawn at y = 670 in drawGame)
+        int playerFeetY = 670 + playerScaled.getHeight();
+
+        //height of the tree sprite (use scaled version if it is loaded)
+        int treeH = (treeScaled != null) ? treeScaled.getHeight() : 80;
+
+        // ---- CHANGE THESE OFFSETS TO MOVE WHERE THE TREE STARTS ----
+        int offsetX = 30;   // + = more to the right of the player, - = more to the left
+        int offsetY = 0;    // + = a bit lower (into the ground), - = a bit higher
+        // ------------------------------------------------------------
+
+        //X-coordinate of the tree: a bit in front of the player
+        treeX = centerX + offsetX -400;
+
+        //Y-coordinate of the tree: bottom of the tree on the ground, plus vertical offset
+        treeY = playerFeetY - treeH + offsetY +100;
+
+        //reset tree spin frame if you use spinning animation
+        treeSpinFrame = 0;
+
+        //for debugging: print where the tree starts
+        System.out.println("Tree started at: " + treeX + ", " + treeY);
     }
 
     private void startStoneAbility() {
@@ -523,12 +592,22 @@ public class Application implements GameLoop {
         // move the tree to the right each frame
         treeX += treeSpeedX;
 
-        // draw the pixel art of the tree
-        SaxionApp.drawImage(treeImgPath, treeX, treeY);
+        // draw spinning tree frame if we have frames
+        if (treeSpinPaths != null && treeSpinPaths.length > 0) {
+            String framePath = treeSpinPaths[treeSpinFrame];
+            SaxionApp.drawImage(framePath, treeX, treeY);
+
+            // advance spin frame (wrap 0..treeSpinFrameCount-1)
+            treeSpinFrame = (treeSpinFrame + 1) % treeSpinFrameCount;
+        } else {
+            // fallback: no spin, draw original
+            SaxionApp.drawImage(treeImgPath, treeX, treeY);
+        }
 
         // stop animation once tree has passed fairy
         if (treeX > getFairyCenterX() + 30) {
             treeActive = false;
+            treeSpinFrame = 0;
         }
     }
 
