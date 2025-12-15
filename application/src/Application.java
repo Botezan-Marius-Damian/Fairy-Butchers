@@ -26,9 +26,14 @@ public class Application implements GameLoop {
     boolean preparingNextFairy = false;
     long prepareStartTime = 0;
 
+    boolean fairyDefeated = false;
+    boolean showingNextLevelScreen = false;
+    long nextLevelScreenStartTime = 0;
+    final int NEXT_LEVEL_SCREEN_DURATION = 2000;
 
     BufferedImage fairyScaled;
     BufferedImage fairyTwoScaled;
+    BufferedImage fairyThreeScaled;
     BufferedImage playerScaled;
     BufferedImage playButtonScaled;
     BufferedImage playButtonHoverScaled;
@@ -57,12 +62,14 @@ public class Application implements GameLoop {
 
     String fairyScaledPath = "resources/fairy_scaled.png";
     String fairyTwoScaledPath = "resources/fairyTwo_scaled.png";
+    String fairyThreeScaledPath = "resources/fairyThreeScaled.png";
     String playerScaledPath = "resources/player_scaled.png";
     String playButtonScaledPath = "resources/playButton_scaled.png";
     String playButtonHoverScaledPath = "resources/playButton_hover_scaled.png";
     String tutorialButtonScaledPath = "resources/tutorialButton_scaled.png";
     String tutorialButtonHoverScaledPath = "resources/tutorialButton_hover_scaled.png";
 
+    String nextLevelImage = "resources/prepareForNextLevel.png";
     // ==== CHARACTER SELECTION IMAGE ====
     String characterSelection = "resources/characterSelection.png";
 
@@ -169,6 +176,24 @@ public class Application implements GameLoop {
             return;
         }
 
+        // Check if we should show the next level screen
+        if (showingNextLevelScreen) {
+            drawNextLevelScreen();
+
+            // Check if the screen has been shown long enough
+            if (System.currentTimeMillis() - nextLevelScreenStartTime >= NEXT_LEVEL_SCREEN_DURATION) {
+                showingNextLevelScreen = false;
+                nextFairy();
+            }
+            return;
+        }
+
+        if (currentFairy != null && !currentFairy.isAlive() && !showingNextLevelScreen) {
+            showNextLevelScreen();
+            return;
+        }
+
+
         // 1) Count down ONLY during the monster turn (turn.Player)
         //    and switch to Fairy automatically if time is up.
         updateTurnTimer();
@@ -188,6 +213,18 @@ public class Application implements GameLoop {
 
         drawGame();
     }
+
+    private void showNextLevelScreen() {
+        showingNextLevelScreen = true;
+        nextLevelScreenStartTime = System.currentTimeMillis();
+    }
+
+    private void drawNextLevelScreen() {
+        SaxionApp.clear();
+        SaxionApp.drawImage(nextLevelImage, 0, 0);
+
+    }
+
 
     @Override
     public void keyboardEvent(KeyboardEvent e) {
@@ -290,9 +327,17 @@ public class Application implements GameLoop {
         SaxionApp.clear();
         SaxionApp.drawImage("resources/backgroundPictureBattleground.png", 0, 0);
 
-        SaxionApp.drawImage(fairyScaledPath, 970, 700);
+        // Draw player
         SaxionApp.drawImage(playerScaledPath, 200, 670);
 
+        // Draw the correct fairy based on current index
+        if (currentFairyIndex == 0) {
+            SaxionApp.drawImage(fairyScaledPath, 970, 700);
+        } else if (currentFairyIndex == 1) {
+            SaxionApp.drawImage(fairyTwoScaledPath, 970, 700);
+        } else if (currentFairyIndex == 2) {
+            SaxionApp.drawImage(fairyThreeScaledPath, 970, 400);
+        }
 
 
         // draw ability animations on top of battlefield
@@ -332,6 +377,7 @@ public class Application implements GameLoop {
     public void loadSprites() {
         fairyScaled = loadSprite("resources/FairyNo2.png", fairyScaledPath, 8);
         fairyTwoScaled = loadSprite("resources/fairyTwo.png", fairyTwoScaledPath, 8);
+        fairyThreeScaled = loadSprite("resources/fairyNo3.png", fairyThreeScaledPath, 8);
         playerScaled = loadSprite("resources/quake E.png", playerScaledPath, 10);
         playButtonScaled = loadSprite("resources/playButton.png", playButtonScaledPath, 8);
         playButtonHoverScaled = loadSprite("resources/playButton.png", playButtonHoverScaledPath, 6);
@@ -435,8 +481,6 @@ public class Application implements GameLoop {
 
         return rotated;
     }
-
-
 
 
     public void inGameHud() {
@@ -618,10 +662,10 @@ public class Application implements GameLoop {
         // ------------------------------------------------------------
 
         //X-coordinate of the tree: a bit in front of the player
-        treeX = centerX + offsetX -400;
+        treeX = centerX + offsetX - 400;
 
         //Y-coordinate of the tree: bottom of the tree on the ground, plus vertical offset
-        treeY = playerFeetY - treeH + offsetY +100;
+        treeY = playerFeetY - treeH + offsetY + 100;
 
         //reset tree spin frame if you use spinning animation
         treeSpinFrame = 0;
@@ -645,8 +689,8 @@ public class Application implements GameLoop {
 
         int offsetX = 30;   // + right, - left
 
-        stoneX = centerX + offsetX -475;
-        stoneY = playerFeetY - stoneH +250;
+        stoneX = centerX + offsetX - 475;
+        stoneY = playerFeetY - stoneH + 250;
 
         System.out.println("Stone started at: " + stoneX + ", " + stoneY);
     }
@@ -831,16 +875,21 @@ public class Application implements GameLoop {
     }
 
     public void attackEnemy() {
-        if (characters.isEmpty()) return; //safety check
+        if (characters.isEmpty() || currentFairy == null) return;
 
-        //Get the selected character
         Player_characters character = characters.get(selectedCharacterIndex);
 
-        //Deal damage
-        enemyHp -= character.atk;
+        // Reduce fairy's HP directly
+        currentFairy.hp -= character.atk;
+        if (currentFairy.hp < 0) currentFairy.hp = 0;
 
-        //Hp doesn't go below 0
-        if (enemyHp < 0) enemyHp = 0;
+        // Also update enemyHp display
+        enemyHp = currentFairy.hp;
+
+        // Check if fairy is defeated
+        if (currentFairy.hp <= 0) {
+            showNextLevelScreen();
+        }
     }
 
     // Handle keyboard input when the current character is the Earth monster
@@ -876,8 +925,11 @@ public class Application implements GameLoop {
     private void nextFairy() {
         currentFairyIndex++;
 
-        if (currentFairyIndex >= fairies.size())
+        if (currentFairyIndex >= fairies.size()) {
             currentFairyIndex = 0;
+
+            return;
+        }
 
         currentFairy = fairies.get(currentFairyIndex);
 
@@ -885,15 +937,31 @@ public class Application implements GameLoop {
             currentFairy.increaseScaling();
         }
 
+        // Skip dead fairies (in case they're already dead)
         while (!currentFairy.isAlive()) {
             currentFairyIndex++;
 
-            if (currentFairyIndex >= fairies.size()){
+            if (currentFairyIndex >= fairies.size()) {
                 currentFairyIndex = 0;
-
                 currentFairy = fairies.get(currentFairyIndex);
+
+                return;
             }
+
+            currentFairy = fairies.get(currentFairyIndex);
         }
+
+        // Reset enemy HP display for the new fairy
+        enemyHp = currentFairy.hp;
+
+        // Reset turn to player
+        currentTurn = turn.Player;
+        startTurnTimer();
+
+        // Reset corruption for new fight
+        corruptionLevel = 0;
+        corruptionDecayedThisTurn = false;
+
     }
 
 
