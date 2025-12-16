@@ -12,3 +12,6 @@ Thumbs.db
 
 # Ignore any temporary files
 *.log
+
+#Ignore executables
+*.exe 

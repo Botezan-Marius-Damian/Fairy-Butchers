@@ -1,5 +1,4 @@
 import nl.saxion.app.CsvReader;
-import nl.saxion.app.SaxionApp;
 import nl.saxion.app.interaction.GameLoop;
 import nl.saxion.app.interaction.KeyboardEvent;
 import nl.saxion.app.interaction.MouseEvent;
@@ -7,286 +6,238 @@ import nl.saxion.app.interaction.MouseEvent;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
-import javax.swing.*;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+
+import static nl.saxion.app.SaxionApp.*;
 
 public class Application implements GameLoop {
-    ArrayList<Player_characters> characters = readingCSVFile();
+
+    static int SCREEN_WIDTH = 1536;
+    static int SCREEN_HEIGHT = 1024;
+    static int TARGET_FPS = 60;
+    int PLAYER_BASE_HP = 150;
+    int MAX_CORRUPTION = 120;
+    int TURN_DURATION_MS = 5000;
+    int TREE_SPIN_FRAME_COUNT = 48;
+    int WALL_MAX_FRAMES = 90;
+    int PUNCH_MAX_FRAMES = 32;
+
+
+    int PLAY_BUTTON_X = 450;
+    int PLAY_BUTTON_Y = 550;
+    int TUTORIAL_BUTTON_X = 810;
+    int TUTORIAL_BUTTON_Y = 440;
+    int PLAYER_DRAW_X = 200;
+    int PLAYER_DRAW_Y = 670;
+    int FAIRY_DRAW_X = 970;
+    int FAIRY_DRAW_Y = 700;
+
+
+    int HUD_HP_W = 500;
+    int HUD_MANA_W = 250;
+    int HUD_CORRUPT_H = 750;
+    int HUD_ENEMY_HP_W = 300;
+
+
+    String BACKGROUND_INTRO_PATH = "resources/fairyButchersFrontPage.png";
+    String BACKGROUND_SELECTION_PATH = "resources/characterSelection.png";
+    String BACKGROUND_GAME_PATH = "resources/backgroundPictureBattleground.png";
+    String DEFAULT_PLAYER_SPRITE = "quakeE.png";
+
+
+
+    ArrayList<PlayerCharacters> characters = readingCSVFile();
     ArrayList<Fairy> fairies = new ArrayList<>();
+    ArrayList<String> fairyOriginalPaths = new ArrayList<>(Arrays.asList("fairyOne.png", "FairyNo2.png", "evilFairy3.png"));
+    ArrayList<Integer> fairyScales = new ArrayList<>(Arrays.asList(8 , 8, 10));
+    ArrayList<String> fairyScaledPaths = new ArrayList<>();
 
-
-    enum turn {
-        Player,
-        Fairy
+    enum Turn {
+        PLAYER,
+        FAIRY
     }
 
-    turn currentTurn = turn.Player;
-
-    boolean preparingNextFairy = false;
-    long prepareStartTime = 0;
-
-    boolean fairyDefeated = false;
-    boolean showingNextLevelScreen = false;
-    long nextLevelScreenStartTime = 0;
-    final int NEXT_LEVEL_SCREEN_DURATION = 2000;
-
-    BufferedImage fairyScaled;
-    BufferedImage fairyTwoScaled;
-    BufferedImage fairyThreeScaled;
-    BufferedImage playerScaled;
-    BufferedImage playButtonScaled;
-    BufferedImage playButtonHoverScaled;
-    BufferedImage tutorialButtonScaled;
-    BufferedImage tutorialButtonHoverScaled;
-
-
-    BufferedImage wallScaled;
-    String wallScaledPath = "resources/ability_wall_scaled.png";
-
-
-    BufferedImage stoneScaled;
-    String stoneScaledPath = "resources/ability_stone_scaled.png";
-
-    BufferedImage treeScaled;
-    String treeScaledPath = "resources/ability_tree_scaled.png";
-
-    BufferedImage punchScaled;
-    String punchScaledPath = "resources/ability_double_punch_scaled.png";
-
-    // tree spin animation: list of rotated frame paths
-    String[] treeSpinPaths;
-    int treeSpinFrame = 0;
-    int treeSpinFrameCount = 48;
-
-
-    String fairyScaledPath = "resources/fairy_scaled.png";
-    String fairyTwoScaledPath = "resources/fairyTwo_scaled.png";
-    String fairyThreeScaledPath = "resources/fairyThreeScaled.png";
-    String playerScaledPath = "resources/player_scaled.png";
-    String playButtonScaledPath = "resources/playButton_scaled.png";
-    String playButtonHoverScaledPath = "resources/playButton_hover_scaled.png";
-    String tutorialButtonScaledPath = "resources/tutorialButton_scaled.png";
-    String tutorialButtonHoverScaledPath = "resources/tutorialButton_hover_scaled.png";
-
-    String nextLevelImage = "resources/prepareForNextLevel.png";
-    // ==== CHARACTER SELECTION IMAGE ====
-    String characterSelection = "resources/characterSelection.png";
-
-    // ===== EARTH ABILITY IMAGE PATHS =====
-    String treeImgPath = "resources/ability_tree.png";    // normal attack option 1
-    String stoneImgPath = "resources/ability_stone.png";         // normal attack option 2
-    String wallImgPath = "resources/ability_wall.png";          // defence
-    String punchImgPath = "resources/ability_double_punch.png";  // ultimate
-
-    // ===== ANIMATION STATE: NORMAL ATTACK (tree / stone) =====
-    boolean treeActive = false;
-    int treeX, treeY;
-    int treeSpeedX = 18;   // tree projectile speed
-
-    boolean stoneActive = false;
-    int stoneX, stoneY;
-    int stoneSpeedX = 25;  // stone projectile speed
-
-    // ===== ANIMATION STATE: DEFENCE (wall) =====
-    boolean wallActive = false;
-    int wallFrame = 0;
-    int wallMaxFrames = 90; // how many frames wall is visible
-
-    // ===== ANIMATION STATE: ULTIMATE (double punch) =====
-    boolean punchActive = false;
-    int punchFrame = 0;
-    int punchMaxFrames = 32; // short animation
-
+    Turn currentTurn = Turn.PLAYER;
     boolean hoveringPlayButton = false;
     boolean hoveringTutorialButton = false;
-
-    boolean playerTurn = true;
-    boolean actionPending = false;
-
-
-    int playButtonHoverWidth = 0;
-    int playButtonHoverHeight = 0;
-
-
-    int playButtonX = 450;
-    int playButtonY = 550;
-    int playButtonWidth = 0;
-    int playButtonHeight = 0;
-
-
-    int tutorialButtonHoverWidth = 0;
-    int tutorialButtonHoverHeight = 0;
-
-    int tutorialButtonX = 810;
-    int tutorialButtonY = 440;
-    int tutorialButtonWidth = 0;
-    int tutorialButtonHeight = 0;
-
-    boolean inCharacterSelection = true;
     boolean inIntro = true;
+    boolean inCharacterSelection = false;
     boolean corruptionDecayedThisTurn = false;
 
     int selectedCharacterIndex = 0;
     int currentFairyIndex = 0;
-
     Fairy currentFairy;
-    int enemyHp = 100;
     int corruptionLevel = 0;
 
-    double fairyFloatOffset = 0;
-    double floatAmplitude = 10;
-    double floatSpeed = 0.05;
-    double time = 0;
+
+    BufferedImage playerScaled;
+    BufferedImage treeScaled;
+    BufferedImage stoneScaled;
+    BufferedImage wallScaled;
+    BufferedImage punchScaled;
+
+    String playerScaledPath = "resources/player_scaled.png";
+    String fairyScaledPath = "resources/fairy_scaled.png";
+    String wallScaledPath = "resources/ability_wall_scaled.png";
+    String stoneScaledPath = "resources/ability_stone_scaled.png";
+    String treeScaledPath = "resources/ability_tree_scaled.png";
+    String punchScaledPath = "resources/ability_double_punch_scaled.png";
+
+    String playButtonScaledPath = "resources/playButton_scaled.png";
+    String playButtonHoverScaledPath = "resources/playButton_hover_scaled.png";
+    String tutorialButtonScaledPath = "resources/tutorialButton_scaled.png";
+    String tutorialButtonHoverScaledPath = "resources/tutorialButton_hover_scaled.png";
+    String currentFairyPath;
+
+
+    int playButtonWidth = 0;
+    int playButtonHeight = 0;
+    int playButtonHoverWidth = 0;
+    int playButtonHoverHeight = 0;
+    int tutorialButtonWidth = 0;
+    int tutorialButtonHeight = 0;
+    int tutorialButtonHoverWidth = 0;
+    int tutorialButtonHoverHeight = 0;
+
+
+    boolean treeActive = false;
+    int treeX, treeY;
+    int treeSpeedX = 18;
+    String[] treeSpinPaths;
+    int treeSpinFrame = 0;
+
+    boolean stoneActive = false;
+    int stoneX, stoneY;
+    int stoneSpeedX = 25;
+
+    boolean wallActive = false;
+    int wallFrame = 0;
+
+    boolean punchActive = false;
+    int punchFrame = 0;
+
 
     long gameStartTime = -1;
-
-    // ==== TURN TIMER (per player turn) ====
-    long turnStartTime = -1;        // when the current player turn started
-    int turnDurationMs = 5000;      // 5 seconds per turn
+    long turnStartTime = -1;
     boolean turnTimerActive = false;
 
     public static void main(String[] args) {
         System.setProperty("sun.java2d.uiScale", "1.0");
-        SaxionApp.startGameLoop(new Application(), 1536, 1024, 16);
+        startGameLoop(new Application(), SCREEN_WIDTH, SCREEN_HEIGHT, TARGET_FPS);
     }
-
 
     @Override
     public void init() {
         loadSprites();
 
+        if (!characters.isEmpty()) {
+            loadPlayerSprite(characters.get(0).png);
+        } else {
+            loadPlayerSprite(DEFAULT_PLAYER_SPRITE);
+        }
+
+
         fairies.add(new Fairy(10, 20, 100));
         fairies.add(new Fairy(10, 20, 120));
         fairies.add(new Fairy(10, 20, 150));
 
+        for(int i=0; i < fairies.size(); ++i)
+        {
+            String path = loadFairySprite(fairyOriginalPaths.get(i), fairyScales.get(i));
+            fairyScaledPaths.add(path);
+        }
+
+        currentFairyIndex = 0;
         currentFairy = fairies.get(currentFairyIndex);
+        currentFairyPath = fairyScaledPaths.get(currentFairyIndex);
     }
 
     @Override
     public void loop() {
-
         if (inIntro) {
             drawIntro();
             return;
         }
 
         if (inCharacterSelection) {
-            characterSelectionPage();
+            drawCharacterSelection();
             return;
         }
 
-        // Check if we should show the next level screen
-        if (showingNextLevelScreen) {
-            drawNextLevelScreen();
-
-            // Check if the screen has been shown long enough
-            if (System.currentTimeMillis() - nextLevelScreenStartTime >= NEXT_LEVEL_SCREEN_DURATION) {
-                showingNextLevelScreen = false;
-                nextFairy();
-            }
-            return;
+        if(currentFairy != null && !currentFairy.isAlive()){
+            nextFairy();
+            if(currentFairy == null)
+                return;
         }
 
-        if (currentFairy != null && !currentFairy.isAlive() && !showingNextLevelScreen) {
-            showNextLevelScreen();
-            return;
-        }
-
-
-        // 1) Count down ONLY during the monster turn (turn.Player)
-        //    and switch to Fairy automatically if time is up.
         updateTurnTimer();
 
-        // 2) If it is the fairy’s turn, let the fairy act once,
-        //    then give the turn back to the monsters and start a new 5‑second timer.
-        if (currentTurn == turn.Fairy) {
+        if (currentTurn == Turn.FAIRY) {
             fairyTurn();
-            currentTurn = turn.Player;   // give turn back to monsters
-            startTurnTimer();            // monsters get a fresh 5 seconds
+            currentTurn = Turn.PLAYER;
+            startTurnTimer();
         }
 
-        if (!corruptionDecayedThisTurn) {
+        if (currentTurn == Turn.PLAYER && !corruptionDecayedThisTurn) {
             decayCorruption();
             corruptionDecayedThisTurn = true;
+        } else if (currentTurn == Turn.FAIRY) {
+            corruptionDecayedThisTurn = false;
         }
 
         drawGame();
     }
 
-    private void showNextLevelScreen() {
-        showingNextLevelScreen = true;
-        nextLevelScreenStartTime = System.currentTimeMillis();
+    private void handlePlayerAbility(int abilityKey, Runnable abilityAction, int attackCount) {
+        if (currentTurn == Turn.PLAYER) {
+            if (abilityAction != null) {
+                abilityAction.run();
+            }
+
+            for (int i = 0; i < attackCount; i++) {
+                attackEnemy();
+            }
+
+            currentTurn = Turn.FAIRY;
+            turnTimerActive = false;
+            corruptionDecayedThisTurn = false;
+        }
     }
-
-    private void drawNextLevelScreen() {
-        SaxionApp.clear();
-        SaxionApp.drawImage(nextLevelImage, 0, 0);
-
-    }
-
 
     @Override
     public void keyboardEvent(KeyboardEvent e) {
-
-        if (inIntro) {
-            return;
-        }
+        if (inIntro) return;
 
         if (inCharacterSelection) {
-            if (e.getKeyCode() == KeyboardEvent.VK_1) {
-                inCharacterSelection = false;
-                startTurnTimer();
+
+            if (e.getKeyCode() >= KeyboardEvent.VK_1 && e.getKeyCode() <= KeyboardEvent.VK_4) {
+                int index = e.getKeyCode() - KeyboardEvent.VK_1;
+                if (index < characters.size()) {
+                    selectedCharacterIndex = index;
+
+
+                    PlayerCharacters selected = characters.get(selectedCharacterIndex);
+                    loadPlayerSprite(selected.png);
+
+                    inCharacterSelection = false;
+                    startTurnTimer();
+                }
+                return;
             }
             return;
         }
 
-        if (!inIntro && e.getKeyCode() == KeyboardEvent.VK_Q) {
-            if (currentTurn == turn.Player) {
-                // START NORMAL ATTACK ANIMATION (tree or stone)
-                startNormalAttackAnimation();
-
-                attackEnemy();
-                currentTurn = turn.Fairy;
-                turnTimerActive = false;
-            }
-        }
-
-        // DEFENCE (E) – build wall
-        if (!inIntro && e.getKeyCode() == KeyboardEvent.VK_E) {
-            if (currentTurn == turn.Player) {
-                startWallAbility();
-                // if you want, you can also end the turn here:
-                // currentTurn = turn.Fairy;
-            }
-        }
-
-        // ULTIMATE (R) – double punch
-        if (!inIntro && e.getKeyCode() == KeyboardEvent.VK_R) {
-            System.out.println("R pressed. currentTurn = " + currentTurn);
-            if (currentTurn == turn.Player) {
-                System.out.println("Starting punch ability");
-                // example: extra damage for ultimate
-                attackEnemy();      // hit 1
-                attackEnemy();      // hit 2
-
-                startPunchAbility(); // play punch animation
-                currentTurn = turn.Fairy;
-                turnTimerActive = false;
-            }
-        }
-
-        if (!inIntro && e.getKeyCode() == KeyboardEvent.VK_W) {
-            if (currentTurn == turn.Player) {
-                useStoneThrowAttack();
-                turnTimerActive = false;
-            }
-        }
-
-
-        if (!inIntro && e.getKeyCode() == KeyboardEvent.VK_1) {
-            inCharacterSelection = false;
-
+        // Logica Abilităților
+        if (e.getKeyCode() == KeyboardEvent.VK_Q) {
+            handlePlayerAbility(KeyboardEvent.VK_Q, this::startTreeAbility, 1);
+        } else if (e.getKeyCode() == KeyboardEvent.VK_W) {
+            handlePlayerAbility(KeyboardEvent.VK_W, this::startStoneAbility, 1);
+        } else if (e.getKeyCode() == KeyboardEvent.VK_E) {
+            handlePlayerAbility(KeyboardEvent.VK_E, this::startWallAbility, 0); // Fără atac
+        } else if (e.getKeyCode() == KeyboardEvent.VK_R) {
+            handlePlayerAbility(KeyboardEvent.VK_R, this::startPunchAbility, 2); // Atac dublu
         }
     }
 
@@ -295,147 +246,209 @@ public class Application implements GameLoop {
         int mx = e.getX();
         int my = e.getY();
 
-        //when the mouse is exactly at the playbutton X, Y, width and height,
-        //the image will shrink and do it's function
-        hoveringPlayButton = (mx >= playButtonX && mx <= playButtonX + playButtonWidth &&
-                my >= playButtonY && my <= playButtonY + playButtonHeight);
+        hoveringPlayButton = (mx >= PLAY_BUTTON_X && mx <= PLAY_BUTTON_X + playButtonWidth &&
+                my >= PLAY_BUTTON_Y && my <= PLAY_BUTTON_Y + playButtonHeight);
 
-        hoveringTutorialButton = (mx >= tutorialButtonX && mx <= tutorialButtonX + tutorialButtonWidth
-                && my >= tutorialButtonY && my <= tutorialButtonY + tutorialButtonHeight);
-
+        hoveringTutorialButton = (mx >= TUTORIAL_BUTTON_X && mx <= TUTORIAL_BUTTON_X + tutorialButtonWidth &&
+                my >= TUTORIAL_BUTTON_Y && my <= TUTORIAL_BUTTON_Y + tutorialButtonHeight);
 
         if (inIntro && e.isMouseUp() && e.isLeftMouseButton()) {
-            if (hoveringPlayButton || hoveringTutorialButton) {
+            if (hoveringPlayButton) {
                 inIntro = false;
-                // TIMER: start when intro ends
+                inCharacterSelection = true;
                 startTimerIfNeeded();
-                //SaxionApp.printLine("Play button clicked at: " + mx + "," + my);
-                System.out.println("Play button clicked at: " + mx + "," + my);
             }
         }
     }
 
 
+
     private void drawIntro() {
-        SaxionApp.clear();
-        SaxionApp.drawImage("resources/fairyButchersFrontPage.png", 0, 0);
-        introHud();
-    }
+        clear();
+        drawImage(BACKGROUND_INTRO_PATH, 0, 0);
 
-    private void drawGame() {
 
-        SaxionApp.clear();
-        SaxionApp.drawImage("resources/backgroundPictureBattleground.png", 0, 0);
-
-        // Draw player
-        SaxionApp.drawImage(playerScaledPath, 200, 670);
-
-        // Draw the correct fairy based on current index
-        if (currentFairyIndex == 0) {
-            SaxionApp.drawImage(fairyScaledPath, 970, 700);
-        } else if (currentFairyIndex == 1) {
-            SaxionApp.drawImage(fairyTwoScaledPath, 970, 700);
-        } else if (currentFairyIndex == 2) {
-            SaxionApp.drawImage(fairyThreeScaledPath, 970, 400);
+        if (hoveringPlayButton && playButtonHoverScaledPath != null) {
+            int hoverX = PLAY_BUTTON_X - (playButtonHoverWidth - playButtonWidth) / 2;
+            int hoverY = PLAY_BUTTON_Y - (playButtonHoverHeight - playButtonHeight) / 2;
+            drawImage(playButtonHoverScaledPath, hoverX, hoverY);
+        } else {
+            drawImage(playButtonScaledPath, PLAY_BUTTON_X, PLAY_BUTTON_Y);
         }
 
 
-        // draw ability animations on top of battlefield
-        drawAllAbilities();
-
-        inGameHud();
+        if (hoveringTutorialButton && tutorialButtonHoverScaledPath != null) {
+            int hoverX = TUTORIAL_BUTTON_X - (tutorialButtonHoverWidth - tutorialButtonWidth) / 2;
+            int hoverY = TUTORIAL_BUTTON_Y - (tutorialButtonHoverHeight - tutorialButtonHeight) / 2;
+            drawImage(tutorialButtonHoverScaledPath, hoverX, hoverY);
+        } else {
+            drawImage(tutorialButtonScaledPath, TUTORIAL_BUTTON_X, TUTORIAL_BUTTON_Y);
+        }
     }
 
-    public ArrayList<Player_characters> readingCSVFile() {
-        CsvReader reader = new CsvReader("application/src/character.csv");
-        reader.skipRow();
-        reader.setSeparator(',');
+    private void drawCharacterSelection() {
+        clear();
+        drawImage(BACKGROUND_SELECTION_PATH, 0, 0);
 
-        ArrayList<Player_characters> characters = new ArrayList<>();
+    }
 
-        while (reader.loadRow()) {
+    private void drawGame() {
+        clear();
+        drawImage(BACKGROUND_GAME_PATH, 0, 0);
 
-            Player_characters character = new Player_characters();
-            //String name;
-            //String png;
-            //int atk;
-            //int hp;
-            //int baseMana;
-            //Ability characterAbility;
-            Player_characters.name = reader.getString(0);
-            Player_characters.png = reader.getString(1);
-            Player_characters.atk = reader.getInt(2);
-            Player_characters.hp = reader.getInt(3);
-            Player_characters.baseMana = reader.getInt(4);
-            //character ability needs to be added
-            characters.add(character);
+        if(currentFairyPath != null) {
+            drawImage(currentFairyPath, FAIRY_DRAW_X, FAIRY_DRAW_Y);
+        }
+
+        if (playerScaled != null) {
+            drawImage(playerScaledPath, PLAYER_DRAW_X, PLAYER_DRAW_Y);
+        }
+
+        drawAllAbilities();
+        drawInGameHud();
+    }
+
+    private void drawInGameHud() {
+
+        int hudHpX=10, hudHpY=10, hudHpH=10;
+        int hudManaX=10, hudManaY=30, hudManaH=10;
+        int hudCorruptX=1470, hudCorruptY=110, hudCorruptW=50;
+        int hudEnemyX=950, hudEnemyY=680, hudEnemyH=10;
+        int hudAbilityX=10;
+        int hudAbilityStartY=110;
+        int hudAbilitySize=60;
+
+        setFill(Color.lightGray);
+        drawRectangle(hudHpX, hudHpY, HUD_HP_W, hudHpH);
+        drawRectangle(hudManaX, hudManaY, HUD_MANA_W, hudManaH);
+        drawRectangle(hudCorruptX, hudCorruptY, hudCorruptW, HUD_CORRUPT_H);
+        drawRectangle(hudEnemyX, hudEnemyY, HUD_ENEMY_HP_W, hudEnemyH);
+
+        for (int i = 0; i < 4; i++) {
+            drawRectangle(hudAbilityX, hudAbilityStartY + i * 70, hudAbilitySize, hudAbilitySize);
+        }
+
+        if (!characters.isEmpty()) {
+            fillHealth(characters.get(selectedCharacterIndex).hp);
+        }
+        fillMana(75);
+        fillCorruption(corruptionLevel);
+        fillEnemy(currentFairy.hp, currentFairy.maxHp);
+
+        drawTimer();
+        drawTurnTimer();
+    }
+
+    private ArrayList<PlayerCharacters> readingCSVFile() {
+        ArrayList<PlayerCharacters> characters = new ArrayList<>();
+
+        try {
+
+            CsvReader reader = new CsvReader("resources/character.csv");
+            reader.skipRow();
+            reader.setSeparator(',');
+
+            while (reader.loadRow()) {
+                PlayerCharacters character = new PlayerCharacters();
+                character.name = reader.getString(0);
+                character.png = reader.getString(1); // ATENȚIE: numele cu spații și majuscule
+                character.atk = reader.getInt(2);
+                character.hp = reader.getInt(3);
+                character.baseMana = reader.getInt(4);
+                characters.add(character);
+            }
+        } catch (Exception e) {
+            String[] names = {"Quake E", "Blood Twister", "Floaty Chocker", "Scorching Imp"};
+            String[] images = {"quake E.png", "Blood Twister.png", "Floaty Choker.png", "Scorching imp.png"};
+            int[] atks = {45, 35, 25, 15};
+
+            for (int i = 0; i < 4; i++) {
+                PlayerCharacters pc = new PlayerCharacters();
+                pc.name = names[i];
+                pc.png = images[i];
+                pc.atk = atks[i];
+                pc.hp = PLAYER_BASE_HP;
+                pc.baseMana = 110;
+                characters.add(pc);
+            }
         }
         return characters;
     }
 
-
-    public void loadSprites() {
-        fairyScaled = loadSprite("resources/FairyNo2.png", fairyScaledPath, 8);
-        fairyTwoScaled = loadSprite("resources/fairyTwo.png", fairyTwoScaledPath, 8);
-        fairyThreeScaled = loadSprite("resources/fairyNo3.png", fairyThreeScaledPath, 8);
-        playerScaled = loadSprite("resources/quake E.png", playerScaledPath, 10);
-        playButtonScaled = loadSprite("resources/playButton.png", playButtonScaledPath, 8);
-        playButtonHoverScaled = loadSprite("resources/playButton.png", playButtonHoverScaledPath, 6);
-        tutorialButtonScaled = loadSprite("resources/tutorialButton.png", tutorialButtonScaledPath, 8);
-        tutorialButtonHoverScaled = loadSprite("resources/tutorialButton.png", tutorialButtonHoverScaledPath, 6);
-
-        wallScaled = loadSprite("resources/ability_wall.png", wallScaledPath, 1);
-
-        treeScaled = loadSprite("resources/ability_tree.png", treeScaledPath, 1);
-
-        treeSpinPaths = new String[treeSpinFrameCount];
-        for (int i = 0; i < treeSpinFrameCount; i++) {
-            double angleRad = 2 * Math.PI * i / treeSpinFrameCount;
-            String path = "resources/ability_tree_spin_" + i + ".png";
-            rotateSprite(treeScaled, angleRad, path);
-            treeSpinPaths[i] = path;
-        }
-
-        punchScaled = loadSprite("resources/ability_double_punch.png", punchScaledPath, 1);
-
-        stoneScaled = loadSprite("resources/ability_stone.png", stoneScaledPath, 1);
-
-        if (playButtonScaled != null) {
-            playButtonWidth = playButtonScaled.getWidth();
-            playButtonHeight = playButtonScaled.getHeight();
-        } else {
-            playButtonWidth = 200;
-            playButtonHeight = 80;
-        }
-
-        if (playButtonHoverScaled != null) {
-            playButtonHoverWidth = playButtonHoverScaled.getWidth();
-            playButtonHoverHeight = playButtonHoverScaled.getHeight();
-        } else {
-            playButtonHoverWidth = playButtonWidth;
-            playButtonHoverHeight = playButtonHeight;
-        }
-
-        if (tutorialButtonScaled != null) {
-            tutorialButtonWidth = tutorialButtonScaled.getWidth();
-            tutorialButtonHeight = tutorialButtonScaled.getHeight();
-        } else {
-            tutorialButtonWidth = 200;
-            tutorialButtonHeight = 80;
-        }
-
-        if (tutorialButtonHoverScaled != null) {
-            tutorialButtonHoverWidth = tutorialButtonHoverScaled.getWidth();
-            tutorialButtonHoverHeight = tutorialButtonHoverScaled.getHeight();
-        } else {
-            tutorialButtonHoverWidth = playButtonWidth;
-            tutorialButtonHoverHeight = playButtonHeight;
+    private void loadPlayerSprite(String imageFileName) {
+        try {
+            String inputPath = "resources/" + imageFileName;
+            playerScaled = loadSprite(inputPath, playerScaledPath, 10);
+        } catch (Exception e) {
+            try {
+                playerScaled = loadSprite("resources/" + DEFAULT_PLAYER_SPRITE, playerScaledPath, 10);
+            } catch (Exception ex) {
+                System.err.println("Failed to load default sprite");
+            }
         }
     }
+
+    public void loadSprites() {
+        try {
+            BufferedImage originalFairy = loadSprite("resources/FairyNo2.png", fairyScaledPath, 8);
+
+            BufferedImage playButtonOriginal = ImageIO.read(new File("resources/playButton.png"));
+            loadScaledAndSave(playButtonOriginal, playButtonScaledPath, 8);
+            loadScaledAndSave(playButtonOriginal, playButtonHoverScaledPath, 9);
+
+            BufferedImage tutorialButtonOriginal = ImageIO.read(new File("resources/tutorialButton.png"));
+            loadScaledAndSave(tutorialButtonOriginal, tutorialButtonScaledPath, 8);
+            loadScaledAndSave(tutorialButtonOriginal, tutorialButtonHoverScaledPath, 9);
+
+            wallScaled = loadSprite("resources/ability_wall.png", wallScaledPath, 1);
+            treeScaled = loadSprite("resources/ability_tree.png", treeScaledPath, 1);
+            stoneScaled = loadSprite("resources/ability_stone.png", stoneScaledPath, 1);
+            punchScaled = loadSprite("resources/ability_double_punch.png", punchScaledPath, 1);
+
+            treeSpinPaths = new String[TREE_SPIN_FRAME_COUNT];
+            for (int i = 0; i < TREE_SPIN_FRAME_COUNT; i++) {
+                double angleRad = 2 * Math.PI * i / TREE_SPIN_FRAME_COUNT;
+                String path = "resources/ability_tree_spin_" + i + ".png";
+                rotateSprite(treeScaled, angleRad, path);
+                treeSpinPaths[i] = path;
+            }
+
+            playButtonWidth = (int)(ImageIO.read(new File(playButtonScaledPath)).getWidth());
+            playButtonHeight = (int)(ImageIO.read(new File(playButtonScaledPath)).getHeight());
+            playButtonHoverWidth = (int)(ImageIO.read(new File(playButtonHoverScaledPath)).getWidth());
+            playButtonHoverHeight = (int)(ImageIO.read(new File(playButtonHoverScaledPath)).getHeight());
+
+            tutorialButtonWidth = (int)(ImageIO.read(new File(tutorialButtonScaledPath)).getWidth());
+            tutorialButtonHeight = (int)(ImageIO.read(new File(tutorialButtonScaledPath)).getHeight());
+            tutorialButtonHoverWidth = (int)(ImageIO.read(new File(tutorialButtonHoverScaledPath)).getWidth());
+            tutorialButtonHoverHeight = (int)(ImageIO.read(new File(tutorialButtonHoverScaledPath)).getHeight());
+
+
+        } catch (Exception ex) {
+            printLine("Failed to load sprites: " + ex.getMessage());
+        }
+    }
+
+    private void loadScaledAndSave(BufferedImage original, String outputPath, int scale) throws Exception {
+        int w = original.getWidth() * scale;
+        int h = original.getHeight() * scale;
+
+        BufferedImage scaled = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = scaled.createGraphics();
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g2.drawImage(original, 0, 0, w, h, null);
+        g2.dispose();
+
+        ImageIO.write(scaled, "png", new File(outputPath));
+    }
+
 
     public BufferedImage loadSprite(String inputPath, String outputPath, int scale) {
         try {
             BufferedImage original = ImageIO.read(new File(inputPath));
+            if (original == null) throw new Exception("Image not found: " + inputPath);
+
             int w = original.getWidth() * scale;
             int h = original.getHeight() * scale;
 
@@ -446,27 +459,20 @@ public class Application implements GameLoop {
             g2.drawImage(original, 0, 0, w, h, null);
             g2.dispose();
 
-
             ImageIO.write(scaled, "png", new File(outputPath));
             return scaled;
         } catch (Exception ex) {
-            SaxionApp.printLine("Failed to load/scale sprite: " + inputPath);
-            ex.printStackTrace();
+            System.err.println("Eroare la incarcarea/scalarea sprite-ului: " + inputPath + " - " + ex.getMessage());
             return null;
         }
     }
 
-    // Rotate a sprite by angleRad and save it to outputPath
     private BufferedImage rotateSprite(BufferedImage src, double angleRad, String outputPath) {
         if (src == null) return null;
-
         int w = src.getWidth();
         int h = src.getHeight();
-
         BufferedImage rotated = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = rotated.createGraphics();
-
-        // Rotate around the center
         g2.translate(w / 2.0, h / 2.0);
         g2.rotate(angleRad);
         g2.drawImage(src, -w / 2, -h / 2, null);
@@ -475,235 +481,137 @@ public class Application implements GameLoop {
         try {
             ImageIO.write(rotated, "png", new File(outputPath));
         } catch (Exception ex) {
-            SaxionApp.printLine("Failed to rotate sprite: " + outputPath);
-            ex.printStackTrace();
+            printLine("Failed to rotate sprite: " + outputPath);
         }
-
         return rotated;
     }
 
-
-    public void inGameHud() {
-        SaxionApp.setFill(Color.lightGray);
-        SaxionApp.drawRectangle(10, 10, 500, 10);
-        SaxionApp.drawRectangle(10, 30, 250, 10);
-        SaxionApp.drawRectangle(1470, 110, 50, 750);
-        SaxionApp.drawRectangle(950, 680, 300, 10);
-        SaxionApp.drawRectangle(10, 110, 60, 60);
-        SaxionApp.drawRectangle(10, 180, 60, 60);
-        SaxionApp.drawRectangle(10, 250, 60, 60);
-        SaxionApp.drawRectangle(10, 320, 60, 60);
-
-        Player_characters player = characters.get(selectedCharacterIndex);
-        fillHealth(player.hp);
-        fillMana(75);
-        fillCorruption(corruptionLevel);
-        fillEnemy(enemyHp);
-
-        // TIMER: show it in the HUD
-        drawTimer();
-
-        // 5‑second turn timer (red, animated)
-        drawTurnTimer();
-    }
-
-    // TIMER: start once, the first time this is called
     private void startTimerIfNeeded() {
         if (gameStartTime < 0) {
             gameStartTime = System.currentTimeMillis();
         }
     }
 
-    // TIMER: compute elapsed time and draw it
     private void drawTimer() {
-        // If we never started the timer, do nothing
         if (gameStartTime < 0) return;
 
-        // Milliseconds since the timer started
         long elapsedMillis = System.currentTimeMillis() - gameStartTime;
-
-        // Convert to seconds
         int totalSeconds = (int) (elapsedMillis / 1000);
-
-        // Minutes and seconds
         int minutes = totalSeconds / 60;
         int seconds = totalSeconds % 60;
 
-        // Format as MM:SS
         String timeText = String.format("%02d:%02d", minutes, seconds);
-
-        // Draw the time on the screen (top-left-ish)
-        SaxionApp.setTextDrawingColor(Color.white);
-        SaxionApp.drawText("Time: " + timeText, 20, 70, 20);
+        setTextDrawingColor(Color.white);
+        drawText("Time: " + timeText, 20, 70, 20);
     }
 
     public void fillHealth(int healthPoints) {
-        SaxionApp.setFill(Color.red);
-        int filler = (int) ((healthPoints / 100.0) * 500);
-        SaxionApp.drawRectangle(10, 10, filler, 10);
+        setFill(Color.red);
+        int maxPlayerHp = characters.isEmpty() ? PLAYER_BASE_HP : characters.get(selectedCharacterIndex).hp;
+        int filler = (int) ((double) healthPoints / maxPlayerHp * HUD_HP_W);
+        drawRectangle(10, 10, filler, 10);
     }
 
     public void fillMana(int manaPoints) {
-        SaxionApp.setFill(Color.blue);
-        int filler = (int) ((manaPoints / 100.0) * 250);
-        SaxionApp.drawRectangle(10, 30, filler, 10);
+        setFill(Color.blue);
+        int maxMana = 100;
+        int filler = (int) (Math.min(manaPoints, maxMana) / (double) maxMana * HUD_MANA_W);
+        drawRectangle(10, 30, filler, 10);
     }
 
     public void fillCorruption(int corruptionLevel) {
-        SaxionApp.setFill(Color.magenta);
+        setFill(Color.magenta);
+        int visibleLevel = Math.min(corruptionLevel, MAX_CORRUPTION);
+        int filler = (int) ((double) visibleLevel / MAX_CORRUPTION * HUD_CORRUPT_H);
+        if (filler < 1 && corruptionLevel > 0) filler = 1;
 
-        // Visual bar capped at 100
-        int visibleLevel = Math.min(corruptionLevel, 100);
-        int filler = (int) ((visibleLevel / 100.0) * 750);
-
-        if (filler < 1 && corruptionLevel > 0) filler = 1; // ensure visibility
-        SaxionApp.drawRectangle(1470, 110, 50, filler);
+        int hudCorruptX=1470;
+        int hudCorruptY=110;
+        int hudCorruptW=50;
+        int drawY = hudCorruptY + HUD_CORRUPT_H - filler;
+        drawRectangle(hudCorruptX, drawY, hudCorruptW, filler);
     }
 
-    public void fillEnemy(int hp) {
-        SaxionApp.setFill(Color.red);
-        int filler = (int) ((hp / 100.0) * 300);
-        SaxionApp.drawRectangle(950, 680, filler, 10);
+    public void fillEnemy(int hp, int maxHp) {
+        setFill(Color.red);
+        int filler = (int) ((double) hp / maxHp * HUD_ENEMY_HP_W);
+        drawRectangle(950, 680, filler, 10);
     }
 
-    // ===== HELPER: approximate centers of player and fairy sprites =====
     private int getPlayerCenterX() {
-        return 200 + playerScaled.getWidth() / 2;
+        return PLAYER_DRAW_X + (playerScaled != null ? playerScaled.getWidth() / 2 : 50);
     }
 
     private int getPlayerCenterY() {
-        return 670 + playerScaled.getHeight() / 2;
+        return PLAYER_DRAW_Y + (playerScaled != null ? playerScaled.getHeight() / 2 : 50);
+    }
+
+    private int getPlayerFeetY() {
+        return PLAYER_DRAW_Y + (playerScaled != null ? playerScaled.getHeight() : 100);
     }
 
     private int getFairyCenterX() {
-        return 970 + fairyScaled.getWidth() / 2;
+        return FAIRY_DRAW_X + 50;
     }
 
     private int getFairyCenterY() {
-        return 700 + fairyScaled.getHeight() / 2;
+        return FAIRY_DRAW_Y + 50;
     }
 
-    // Start (or restart) the 5 second turn timer
     private void startTurnTimer() {
         turnStartTime = System.currentTimeMillis();
         turnTimerActive = true;
     }
 
-    // Seconds left (5..0) for drawing
-    private int getTurnSecondsLeft() {
-        if (!turnTimerActive) return 0;
-
-        long elapsed = System.currentTimeMillis() - turnStartTime;
-        long remainingMs = turnDurationMs - elapsed;
-        if (remainingMs < 0) remainingMs = 0;
-
-        // ceil so you see 5,4,3,2,1,0
-        return (int) Math.ceil(remainingMs / 1000.0);
-    }
-
-    // Check if the player has run out of time and switch to Fairy if so
     private void updateTurnTimer() {
-        if (!turnTimerActive || currentTurn != turn.Player) return;
+        if (!turnTimerActive || currentTurn != Turn.PLAYER) return;
 
         long elapsed = System.currentTimeMillis() - turnStartTime;
-        if (elapsed >= turnDurationMs) {
-            // time is up – end player turn
+        if (elapsed >= TURN_DURATION_MS) {
             turnTimerActive = false;
-            currentTurn = turn.Fairy;
+            currentTurn = Turn.FAIRY;
         }
     }
 
-    // Draw the red animated countdown (only on monster turns)
     private void drawTurnTimer() {
-        // only show while it is the monster’s turn
-        if (!turnTimerActive || currentTurn != turn.Player) return;
+        if (!turnTimerActive || currentTurn != Turn.PLAYER) return;
 
-        int secondsLeft = getTurnSecondsLeft();
-
-        // simple pulse animation for the number
         long elapsed = System.currentTimeMillis() - turnStartTime;
-        double phase = elapsed / 150.0;          // speed of pulsing
-        double scale = 1.0 + 0.25 * Math.sin(phase);
-        int fontSize = (int) (40 * scale);       // base size 40, pulses a bit
+        long remainingMs = TURN_DURATION_MS - elapsed;
+        if (remainingMs < 0) remainingMs = 0;
+        int secondsLeft = (int) Math.floor(remainingMs / 1000.0);
 
-        // ONLY this text is red
-        SaxionApp.setTextDrawingColor(Color.red);
-        SaxionApp.drawText(String.valueOf(secondsLeft), 720, 80, fontSize);
+        double phase = elapsed / 250.0;
+        double scale = 1.0 + 0.15 * Math.sin(phase);
+        int fontSize = (int) (40 * scale);
 
-        // restore text color for the rest of your HUD (white like before)
-        SaxionApp.setTextDrawingColor(Color.white);
+        int textX = SCREEN_WIDTH / 2 - 20;
+        int textY = 80;
+
+        setTextDrawingColor(Color.red);
+        drawText(String.valueOf(secondsLeft), textX, textY, fontSize);
+        setTextDrawingColor(Color.white);
     }
 
-// ===== START ABILITY ANIMATIONS =====
-
-    // Normal attack: always throw tree
-    private void startNormalAttackAnimation() {
-        startTreeAbility();
-    }
-
-    //when we press Q, the tree ability will start
     private void startTreeAbility() {
-        //tree is now active, so we need to draw and move it
         treeActive = true;
-
-        //center of the player sprite
         int centerX = getPlayerCenterX();
-        int centerY = getPlayerCenterY();
+        int playerFeetY = getPlayerFeetY();
+        int treeH = (treeScaled != null ? treeScaled.getHeight() : 80);
 
-        //Y-position where the player's feet are (player is drawn at y = 670 in drawGame)
-        int playerFeetY = 670 + playerScaled.getHeight();
-
-        //height of the tree sprite (use scaled version if it is loaded)
-        int treeH = (treeScaled != null) ? treeScaled.getHeight() : 80;
-
-        // ---- CHANGE THESE OFFSETS TO MOVE WHERE THE TREE STARTS ----
-        int offsetX = 30;   // + = more to the right of the player, - = more to the left
-        int offsetY = 0;    // + = a bit lower (into the ground), - = a bit higher
-        // ------------------------------------------------------------
-
-        //X-coordinate of the tree: a bit in front of the player
-        treeX = centerX + offsetX - 400;
-
-        //Y-coordinate of the tree: bottom of the tree on the ground, plus vertical offset
-        treeY = playerFeetY - treeH + offsetY + 100;
-
-        //reset tree spin frame if you use spinning animation
+        treeX = centerX - 400;
+        treeY = playerFeetY - treeH + 100;
         treeSpinFrame = 0;
-
-        //for debugging: print where the tree starts
-        System.out.println("Tree started at: " + treeX + ", " + treeY);
     }
 
     private void startStoneAbility() {
         stoneActive = true;
-
-        // Player center
         int centerX = getPlayerCenterX();
-        int centerY = getPlayerCenterY();
+        int playerFeetY = getPlayerFeetY();
+        int stoneH = (stoneScaled != null ? stoneScaled.getHeight() : 50);
 
-        // Where the player's feet are (from drawGame: player is at y = 670)
-        int playerFeetY = 670 + playerScaled.getHeight();
-
-        // Stone height (fallback if stoneScaled is null)
-        int stoneH = (stoneScaled != null) ? stoneScaled.getHeight() : 50;
-
-        int offsetX = 30;   // + right, - left
-
-        stoneX = centerX + offsetX - 475;
+        stoneX = centerX - 475;
         stoneY = playerFeetY - stoneH + 250;
-
-        System.out.println("Stone started at: " + stoneX + ", " + stoneY);
-    }
-
-    private void useStoneThrowAttack() {
-        // 1) launch the stone projectile
-        startStoneAbility();
-
-        // 2) deal normal attack damage
-        attackEnemy();
-
-        // 3) end the player's turn
-        currentTurn = turn.Fairy;
     }
 
     private void startWallAbility() {
@@ -712,90 +620,61 @@ public class Application implements GameLoop {
     }
 
     private void startPunchAbility() {
-        System.out.println("startPunchAbility() called");
         punchActive = true;
         punchFrame = 0;
     }
 
-    // ===== UPDATE + DRAW: THROW TREE =====
     private void drawTreeAbility() {
         if (!treeActive) return;
 
-        // move the tree to the right each frame
         treeX += treeSpeedX;
 
-        // draw spinning tree frame if we have frames
         if (treeSpinPaths != null && treeSpinPaths.length > 0) {
             String framePath = treeSpinPaths[treeSpinFrame];
-            SaxionApp.drawImage(framePath, treeX, treeY);
-
-            // advance spin frame (wrap 0..treeSpinFrameCount-1)
-            treeSpinFrame = (treeSpinFrame + 1) % treeSpinFrameCount;
+            drawImage(framePath, treeX, treeY);
+            treeSpinFrame = (treeSpinFrame + 1) % TREE_SPIN_FRAME_COUNT;
         } else {
-            // fallback: no spin, draw original
-            SaxionApp.drawImage(treeImgPath, treeX, treeY);
+            drawImage(treeScaledPath, treeX, treeY);
         }
 
-        // stop animation once tree has passed fairy
         if (treeX > getFairyCenterX() + 30) {
             treeActive = false;
             treeSpinFrame = 0;
         }
     }
 
-    // ===== UPDATE + DRAW: THROW STONE =====
     private void drawStoneAbility() {
         if (!stoneActive) return;
 
-
         stoneX += stoneSpeedX;
-        SaxionApp.drawImage(stoneScaledPath, stoneX, stoneY);
-
-        System.out.println("Drawing stone at: " + stoneX + ", " + stoneY);
+        drawImage(stoneScaledPath, stoneX, stoneY);
 
         if (stoneX > getFairyCenterX() + 30) {
             stoneActive = false;
-            System.out.println("Stone deactivated");
         }
     }
 
-    // ===== UPDATE + DRAW: DEFENCE WALL (single wall between them) =====
     private void drawWallAbility() {
         if (!wallActive) return;
 
         wallFrame++;
-
-        // 1) X position: halfway between player and fairy
         int midX = (getPlayerCenterX() + getFairyCenterX()) / 2;
-
-        int wallW, wallH;
-        if (wallScaled != null) {
-            wallW = wallScaled.getWidth();
-            wallH = wallScaled.getHeight();
-        } else {
-            wallW = 100;
-            wallH = 120;
-        }
-
-        // Center the wall horizontally at midX
+        int wallW = (wallScaled != null ? wallScaled.getWidth() : 100);
+        int wallH = (wallScaled != null ? wallScaled.getHeight() : 120);
         int wallX = midX - wallW / 2;
+        int playerFeetY = getPlayerFeetY();
+        int baseY = playerFeetY - wallH + 100;
 
-        // 3) Put the bottom of the wall on the ground where the player stands
-        //    Player is drawn at Y = 670 in drawGame()
-        int playerFeetY = 670 + playerScaled.getHeight(); // bottom of player sprite
-        int baseY = playerFeetY - wallH + 100;                  // bottom of wall on ground
-
-        // 4) Rising animation (optional) – first 20 frames it comes out of ground
         int riseOffset = 0;
         if (wallFrame < 20) {
             riseOffset = (20 - wallFrame) * 3;
+        } else if (wallFrame > WALL_MAX_FRAMES - 20) {
+            riseOffset = (wallFrame - (WALL_MAX_FRAMES - 20)) * 3;
         }
 
-        // 5) Draw ONE wall sprite
-        SaxionApp.drawImage(wallScaledPath, wallX, baseY + riseOffset);
+        drawImage(wallScaledPath, wallX, baseY + riseOffset);
 
-        // 6) After some time, remove the wall
-        if (wallFrame >= wallMaxFrames) {
+        if (wallFrame >= WALL_MAX_FRAMES) {
             wallActive = false;
         }
     }
@@ -804,16 +683,11 @@ public class Application implements GameLoop {
         if (!punchActive) return;
 
         punchFrame++;
-
-        // In front of the player, horizontally
         int baseX = getPlayerCenterX() + 20;
-
-        // Mid‑low on the screen so it's near the characters but clearly visible
-        int baseY = 200;   // adjust up/down if you want
-
-        int quarter = punchMaxFrames / 4;
-        int speed = 3;
-        int offsetX;
+        int baseY = 200;
+        int quarter = PUNCH_MAX_FRAMES / 4;
+        int speed = 10;
+        int offsetX = 0;
 
         if (punchFrame < quarter) {
             offsetX = punchFrame * speed;
@@ -826,19 +700,14 @@ public class Application implements GameLoop {
         }
 
         int drawX = baseX + offsetX;
-        int drawY = baseY;
+        drawImage(punchScaledPath, drawX, baseY);
 
-        System.out.println("Drawing punch frame " + punchFrame + " at " + drawX + ", " + drawY);
-
-        SaxionApp.drawImage(punchImgPath, drawX, drawY);
-
-        if (punchFrame >= punchMaxFrames) {
+        if (punchFrame >= PUNCH_MAX_FRAMES) {
             punchActive = false;
             punchFrame = 0;
         }
     }
 
-    // Call all ability draw functions every frame
     private void drawAllAbilities() {
         drawTreeAbility();
         drawStoneAbility();
@@ -846,152 +715,92 @@ public class Application implements GameLoop {
         drawPunchAbility();
     }
 
-    public void introHud() {
-
-        if (hoveringPlayButton && playButtonHoverScaled != null) {
-            int hoverX = playButtonX - (playButtonHoverWidth - playButtonWidth) / 2;
-            int hoverY = playButtonY - (playButtonHoverHeight - playButtonHeight) / 2;
-            SaxionApp.drawImage(playButtonHoverScaledPath, hoverX, hoverY);
-        } else {
-            SaxionApp.drawImage(playButtonScaledPath, playButtonX, playButtonY);
-        }
-
-        if (hoveringTutorialButton && tutorialButtonHoverScaled != null) {
-            int tutorialHoverX = tutorialButtonX - (tutorialButtonHoverWidth - tutorialButtonWidth) / 2;
-            int tutorialHoverY = tutorialButtonY - (tutorialButtonHoverHeight - tutorialButtonHeight) / 2;
-            SaxionApp.drawImage(tutorialButtonHoverScaledPath, tutorialHoverX, tutorialHoverY);
-
-        } else {
-            SaxionApp.drawImage(tutorialButtonScaledPath, tutorialButtonX, tutorialButtonY);
-        }
-
-
-    }
-
-    public void characterSelectionPage() {
-
-        SaxionApp.clear();
-        SaxionApp.drawImage(characterSelection, 0, 0);
-    }
-
     public void attackEnemy() {
         if (characters.isEmpty() || currentFairy == null) return;
+        PlayerCharacters character = characters.get(selectedCharacterIndex);
 
-        Player_characters character = characters.get(selectedCharacterIndex);
-
-        // Reduce fairy's HP directly
         currentFairy.hp -= character.atk;
-        if (currentFairy.hp < 0) currentFairy.hp = 0;
 
-        // Also update enemyHp display
-        enemyHp = currentFairy.hp;
-
-        // Check if fairy is defeated
-        if (currentFairy.hp <= 0) {
-            showNextLevelScreen();
+        if (currentFairy.hp < 0) {
+            currentFairy.hp = 0;
         }
     }
 
-    // Handle keyboard input when the current character is the Earth monster
-    private void handleEarthAbilities(KeyboardEvent e) {
-        if (inIntro) return;
-        if (currentTurn != turn.Player) return;
+    private String loadFairySprite(String fileName, int scale){
+        try{
+            String inputPath = "resources/" + fileName;
+            String outputFileName = fileName.replace(".png", "_scaled.png");
+            String outputPath =  "resources/" + outputFileName;
 
-        int key = e.getKeyCode();
-
-        // NORMAL ATTACK (Q)
-        if (key == KeyboardEvent.VK_Q) {
-            attackEnemy();
-            startNormalAttackAnimation(); // tree/stone animation
-            currentTurn = turn.Fairy;
+            loadSprite(inputPath, outputPath, scale);
+            return outputPath;
         }
-
-        // DEFENCE (E)
-        if (key == KeyboardEvent.VK_E) {
-            startWallAbility();
-            // you can decide whether this also ends the turn
-        }
-
-        // ULTIMATE (R)
-        if (key == KeyboardEvent.VK_R) {
-            // e.g. double damage
-            attackEnemy();
-            attackEnemy();
-            startPunchAbility();
-            currentTurn = turn.Fairy;
+        catch(Exception e){
+            System.err.println("Error loading sprites");
+            return null;
         }
     }
 
     private void nextFairy() {
         currentFairyIndex++;
 
-        if (currentFairyIndex >= fairies.size()) {
-            currentFairyIndex = 0;
+        boolean foundNextFairy = false;
 
-            return;
-        }
+        // Wrap around method
+        for(int i=0; i<fairies.size();++i) {
+            int index = (currentFairyIndex + i) % fairies.size();
+            Fairy upcomingFairy = fairies.get(index);
 
-        currentFairy = fairies.get(currentFairyIndex);
+            if (upcomingFairy.isAlive()) {
+                currentFairy = upcomingFairy;
+                currentFairyIndex = index;
+                foundNextFairy = true;
 
-        if (currentFairyIndex > 0) {
-            currentFairy.increaseScaling();
-        }
+                currentFairyPath = fairyScaledPaths.get(currentFairyIndex);
 
-        // Skip dead fairies (in case they're already dead)
-        while (!currentFairy.isAlive()) {
-            currentFairyIndex++;
 
-            if (currentFairyIndex >= fairies.size()) {
-                currentFairyIndex = 0;
-                currentFairy = fairies.get(currentFairyIndex);
+                if (currentFairyIndex > 0) {
+                    currentFairy.increaseScaling();
+                }
+
+                currentTurn = Turn.PLAYER;
+                startTurnTimer();
+                corruptionLevel = 0;
+                corruptionDecayedThisTurn = false;
 
                 return;
             }
-
-            currentFairy = fairies.get(currentFairyIndex);
         }
-
-        // Reset enemy HP display for the new fairy
-        enemyHp = currentFairy.hp;
-
-        // Reset turn to player
-        currentTurn = turn.Player;
-        startTurnTimer();
-
-        // Reset corruption for new fight
-        corruptionLevel = 0;
-        corruptionDecayedThisTurn = false;
-
+        if(!foundNextFairy) {
+            currentFairy = null;
+            currentFairyPath = null;
+        }
     }
 
-
     public void fairyTurn() {
-        if (currentFairy == null || !currentFairy.isAlive()) return;
+        if (currentFairy == null || characters.isEmpty()) return;
 
-        Player_characters player = characters.get(selectedCharacterIndex);
+        PlayerCharacters player = characters.get(selectedCharacterIndex);
+        if (player.hp <= 0) return;
 
         boolean shouldHeal = currentFairy.hp < currentFairy.maxHp && Math.random() < 0.3;
 
         if (shouldHeal) {
-            int healAmount = (int) (currentFairy.hp * 0.25);
+            int healAmount = (int) (currentFairy.maxHp * 0.25);
             currentFairy.hp += healAmount;
             if (currentFairy.hp > currentFairy.maxHp) currentFairy.hp = currentFairy.maxHp;
-
             return;
         }
 
         int damage;
-        boolean criticalHit = false;
-        double playerHealthRatio = player.hp / 100.0;
-        double corruptionRatio = corruptionLevel / 100.0;
+        double playerHealthRatio = (double) player.hp / PLAYER_BASE_HP;
+        double corruptionRatio = (double) corruptionLevel / MAX_CORRUPTION;
         double fairyScaling = currentFairy.scaling;
-        double airChance = 0.4;
 
+        double airChance = 0.4;
         airChance += 0.4 * (1 - playerHealthRatio);
         airChance += 0.3 * corruptionRatio;
-
         airChance += 0.2 * (fairyScaling - 1);
-
         airChance = Math.min(Math.max(airChance, 0.1), 0.9);
 
         if (Math.random() < airChance) {
@@ -1003,33 +812,27 @@ public class Application implements GameLoop {
         double critChance = 0.1 + 0.4 * corruptionRatio;
         if (Math.random() < critChance) {
             damage *= 2;
-            criticalHit = true;
         }
 
         player.hp -= damage;
         if (player.hp < 0) player.hp = 0;
 
         increaseCorruptionDamage(damage);
-
-        nextFairy();
     }
 
     public void increaseCorruptionDamage(int damage) {
-        double randomPercent = 0.10 + Math.random() * 0.05; // 10-15% of damage
+        double randomPercent = 0.10 + Math.random() * 0.05;
         int corruptionIncrease = (int) (randomPercent * damage);
-
         corruptionLevel += corruptionIncrease;
-        if (corruptionLevel > 120) corruptionLevel = 120; // allow temporary overflow
+        if (corruptionLevel > MAX_CORRUPTION) corruptionLevel = MAX_CORRUPTION;
     }
 
     public void decayCorruption() {
-        // Base decay
-        double baseDecay = 20 + Math.random() * 5; // 5-10 points
-
-        // Extra decay if corruption > 100
+        double baseDecay = 20 + Math.random() * 5;
         double extraDecay = 0;
+
         if (corruptionLevel > 100) {
-            extraDecay = (corruptionLevel - 100) * 0.5; // half of overflow
+            extraDecay = (corruptionLevel - 100) * 0.5;
         }
 
         int totalDecay = (int) (baseDecay + extraDecay);
@@ -1038,10 +841,4 @@ public class Application implements GameLoop {
         corruptionLevel -= totalDecay;
         if (corruptionLevel < 0) corruptionLevel = 0;
     }
-
-    private void prepareNextFairyScreen() {
-        preparingNextFairy = true;
-        prepareStartTime = System.currentTimeMillis();
-    }
-
 }
